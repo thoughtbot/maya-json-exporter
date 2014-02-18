@@ -7,8 +7,12 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
         checkBox -v true -l "Vertices" vertsCb;
         checkBox -v true -l "Faces" facesCb;
         checkBox -v true -l "Normals" normalsCb;
-        checkBox -v false -l "Material Indices" materialsCb;
+        checkBox -v true -l "Material Indices" materialsCb;
         checkBox -v false -l "Colors" colorsCb;
+        checkBox -v true -l "Bake Animation" bakeAnimCb;
+        textField -tx 0 -ann "Start" startText;
+        textField -tx 52555 -ann "End" endText;
+        textField -tx 1 -ann "Step" stepText;
     }
     else if ($action == "query")
     {
@@ -23,6 +27,14 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
             $option += "materials ";
         if (`checkBox -q -v colorsCb`)
             $option += "colors ";
+        if (`checkBox -q -v bakeAnimCb`)
+            $option += "bakeAnimations ";
+            $option += `textField -q -tx startText`;
+            $option += " ";
+            $option += `textField -q -tx endText`;
+            $option += " ";
+            $option += `textField -q -tx stepText`;
+            $option += " ";
         $option += "\"";
         eval($callback + $option);
     }
