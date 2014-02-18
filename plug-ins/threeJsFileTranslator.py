@@ -17,6 +17,12 @@ class ThreeJsWriter(object):
 
     def write(self, path, optionString, accessMode):
         self._parseOptions(optionString)
+
+        self.vertices = []
+        self.faces = []
+        self.normals = []
+        self.morphTargets = []
+
         if self.options["bakeAnimations"]:
             self._exportAnimations()
             self._goToFrame(self.options["startFrame"])
@@ -51,7 +57,7 @@ class ThreeJsWriter(object):
         }
 
         with file(path, 'w') as f:
-            f.write(json.dumps(output))
+            f.write(json.dumps(output, separators=(",",":")))
 
     def _parseOptions(self, optionsString):
         self.options = dict([(x, False) for x in self.componentKeys])
@@ -65,29 +71,20 @@ class ThreeJsWriter(object):
             self.options["stepFrame"] = int(bakeAnimOptions[3])
 
     def _exportMeshes(self):
-        self.vertices = []
-        self.faces = []
-        self.normals = []
-
-        for mesh in ls(type='mesh'):
-            self._exportMesh(mesh)
+        if self.options['vertices']:
+            self._exportVertices()
+        self._exportMesh(ls(type='mesh')[0])
 
     def _exportMesh(self, mesh):
-        if self.options['vertices']:
-            self._exportVertices(mesh)
         if self.options['faces']:
             self._exportFaces(mesh)
         if self.options['normals']:
             self._exportNormals(mesh)
 
-    def _exportVertices(self, mesh):
-        for vtx in mesh.vtx:
-            pos = vtx.getPosition()
-            self.vertices += [pos.x, pos.y, pos.z]
+    def _exportVertices(self):
+        self.vertices += self._getVertices()
 
     def _exportAnimations(self):
-        self.morphTargets = []
-
         for frame in self._framesToExport():
             self._exportAnimationForFrame(frame)
 
@@ -103,7 +100,7 @@ class ThreeJsWriter(object):
         })
 
     def _getVertices(self):
-        return [coord for mesh in ls(type='mesh') for point in mesh.getPoints() for coord in [point.x, point.y, point.z]]
+        return [coord for point in ls(type='mesh')[0].getPoints() for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
 
     def _goToFrame(self, frame):
         currentTime(frame)
@@ -134,7 +131,7 @@ class ThreeJsWriter(object):
 
     def _exportNormals(self, mesh):
         for normal in mesh.getNormals():
-            self.normals += [normal.x, normal.y, normal.z]
+            self.normals += [round(normal.x, FLOAT_PRECISION), round(normal.y, FLOAT_PRECISION), round(normal.z, FLOAT_PRECISION)]
 
     def _getTypeBitmask(self):
         bitmask = 0
@@ -143,15 +140,6 @@ class ThreeJsWriter(object):
         if self.options['normals']:
             bitmask |= 32
         return bitmask
-
-class RoundingJsonEncoder(json.JSONEncoder):
-    def _iterencode(self, value, markers=None):
-        if isinstance(value, float):
-            rounded = round(value, 8)
-            s = str(rounded)
-            return (s for s in [s])
-        else:
-            return super(json.JSONEncoder, self)._iterencode(value, markers)
 
 class ThreeJsTranslator(MPxFileTranslator):
     def __init__(self):
