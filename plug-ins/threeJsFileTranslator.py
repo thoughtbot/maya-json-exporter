@@ -75,11 +75,11 @@ class ThreeJsWriter(object):
         if self.options['materials']:
             for engine in mesh.listConnections(type='shadingEngine'):
                 for material in engine.listConnections(type='lambert'):
-                    for i in range(0, len(self.materials) - 1):
+                    for i in range(0, len(self.materials)):
                         serializedMat = self.materials[i]
                         if serializedMat['DbgName'] == material.name():
                             return i
-        return len(self.materials) - 1
+        return -1
 
 
     def _exportVertices(self):
@@ -111,19 +111,24 @@ class ThreeJsWriter(object):
 
     def _exportFaces(self, mesh, materialIndex):
         typeBitmask = self._getTypeBitmask()
+        hasMaterial = materialIndex != -1
+
         for face in mesh.faces:
-            self._exportFaceBitmask(face, typeBitmask)
+            self._exportFaceBitmask(face, typeBitmask, hasMaterial=hasMaterial)
             self.faces += face.getVertices()
             if self.options['materials']:
-                self.faces.append(materialIndex)
+                if hasMaterial:
+                    self.faces.append(materialIndex)
             if self.options['normals']:
                 self._exportFaceVertexNormals(face)
 
-    def _exportFaceBitmask(self, face, typeBitmask):
+    def _exportFaceBitmask(self, face, typeBitmask, hasMaterial=True):
         if face.polygonVertexCount() == 4:
             faceBitmask = 1
         else:
             faceBitmask = 0
+        if hasMaterial:
+            faceBitmask |= 2
         self.faces.append(typeBitmask | faceBitmask)
 
     def _exportFaceVertexNormals(self, face):
@@ -136,8 +141,6 @@ class ThreeJsWriter(object):
 
     def _getTypeBitmask(self):
         bitmask = 0
-        if self.options['materials']:
-            bitmask |= 2
         if self.options['normals']:
             bitmask |= 32
         return bitmask
@@ -152,6 +155,8 @@ class ThreeJsWriter(object):
             "blending": "NormalBlending",
             "colorDiffuse": map(lambda i: i * mat.getDiffuseCoeff(), mat.getColor().rgb),
             "colorAmbient": mat.getAmbientColor().rgb,
+            "depthTest": True,
+            "depthWrite": True,
             "shading": mat.__class__.__name__,
             "transparency": mat.getTransparency().a,
             "transparent": mat.getTransparency().a != 1.0,
