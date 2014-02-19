@@ -19,6 +19,7 @@ class ThreeJsWriter(object):
         self._parseOptions(optionString)
 
         self.vertices = []
+        self.materials = []
         self.faces = []
         self.normals = []
         self.morphTargets = []
@@ -26,6 +27,8 @@ class ThreeJsWriter(object):
         if self.options["bakeAnimations"]:
             self._exportAnimations()
             self._goToFrame(self.options["startFrame"])
+        if self.options["materials"]:
+            self._exportMaterials()
         self._exportMeshes()
 
         output = {
@@ -38,22 +41,7 @@ class ThreeJsWriter(object):
             'faces': self.faces,
             'normals': self.normals,
             'morphTargets': self.morphTargets,
-            'materials' : [{
-                'DbgColor' : 15658734,
-                'DbgIndex' : 0,
-                'DbgName' : 'phong1.001',
-                'blending' : 'NormalBlending',
-                'colorAmbient' : [0.40519176133262746, 0.40519176133262746, 0.0],
-                'colorDiffuse' : [0.40519176133262746, 0.40519176133262746, 0.0],
-                'colorSpecular' : [0.25, 0.25, 0.25],
-                'depthTest' : True,
-                'depthWrite' : True,
-                'shading' : 'Lambert',
-                'specularCoef' : 20,
-                'transparency' : 1.0,
-                'transparent' : False,
-                'vertexColors' : False
-                }]
+            'materials': self.materials,
         }
 
         with file(path, 'w') as f:
@@ -73,13 +61,26 @@ class ThreeJsWriter(object):
     def _exportMeshes(self):
         if self.options['vertices']:
             self._exportVertices()
-        self._exportMesh(ls(type='mesh')[0])
+        for mesh in ls(type='mesh'):
+            self._exportMesh(mesh)
 
     def _exportMesh(self, mesh):
+        materialIndex = self._getMaterialIndex(mesh)
         if self.options['faces']:
-            self._exportFaces(mesh)
+            self._exportFaces(mesh, materialIndex)
         if self.options['normals']:
             self._exportNormals(mesh)
+
+    def _getMaterialIndex(self, mesh):
+        if self.options['materials']:
+            for engine in mesh.listConnections(type='shadingEngine'):
+                for material in engine.listConnections(type='lambert'):
+                    for i in range(0, len(self.materials) - 1):
+                        serializedMat = self.materials[i]
+                        if serializedMat['DbgName'] == material.name():
+                            return i
+        return len(self.materials) - 1
+
 
     def _exportVertices(self):
         self.vertices += self._getVertices()
@@ -100,7 +101,7 @@ class ThreeJsWriter(object):
         })
 
     def _getVertices(self):
-        return [coord for point in ls(type='mesh')[0].getPoints() for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
+        return [coord for mesh in ls(type='mesh') for point in mesh.getPoints() for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
 
     def _goToFrame(self, frame):
         currentTime(frame)
@@ -108,13 +109,13 @@ class ThreeJsWriter(object):
     def _numVertices(self):
         return sum([mesh.numVertices() for mesh in ls(type='mesh')])
 
-    def _exportFaces(self, mesh):
+    def _exportFaces(self, mesh, materialIndex):
         typeBitmask = self._getTypeBitmask()
         for face in mesh.faces:
             self._exportFaceBitmask(face, typeBitmask)
             self.faces += face.getVertices()
             if self.options['materials']:
-                self.faces.append(0)
+                self.faces.append(materialIndex)
             if self.options['normals']:
                 self._exportFaceVertexNormals(face)
 
@@ -140,6 +141,27 @@ class ThreeJsWriter(object):
         if self.options['normals']:
             bitmask |= 32
         return bitmask
+
+    def _exportMaterials(self):
+        for mat in ls(type='lambert'):
+            self.materials.append(self._exportMaterial(mat))
+
+    def _exportMaterial(self, mat):
+        result = {
+            "DbgName": mat.name(),
+            "blending": "NormalBlending",
+            "colorDiffuse": map(lambda i: i * mat.getDiffuseCoeff(), mat.getColor().rgb),
+            "colorAmbient": mat.getAmbientColor().rgb,
+            "shading": mat.__class__.__name__,
+            "transparency": mat.getTransparency().a,
+            "transparent": mat.getTransparency().a != 1.0,
+            "vertexColors": False
+        }
+        if isinstance(mat, nodetypes.Phong):
+            result["colorSpecular"] = mat.getSpecularColor().rgb
+            result["specularCoef"] = mat.getCosPower()
+
+        return result
 
 class ThreeJsTranslator(MPxFileTranslator):
     def __init__(self):
