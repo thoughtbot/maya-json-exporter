@@ -9,7 +9,8 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
         checkBox -v true -l "Normals" normalsCb;
         checkBox -v true -l "Material Indices" materialsCb;
         checkBox -v false -l "Colors" colorsCb;
-        checkBox -v true -l "Bake Animation" bakeAnimCb;
+        checkBox -v false -l "Bones" bonesCb;
+        checkBox -v false -l "Bake Animation" bakeAnimCb;
         textField -tx 0 -ann "Start" startText;
         textField -tx 52555 -ann "End" endText;
         textField -tx 1 -ann "Step" stepText;
@@ -27,6 +28,8 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
             $option += "materials ";
         if (`checkBox -q -v colorsCb`)
             $option += "colors ";
+        if (`checkBox -q -v bonesCb`)
+            $option += "bones ";
         if (`checkBox -q -v bakeAnimCb`)
             $option += "bakeAnimations ";
             $option += `textField -q -tx startText`;

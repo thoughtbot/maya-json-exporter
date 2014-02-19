@@ -13,7 +13,7 @@ FLOAT_PRECISION = 8
 
 class ThreeJsWriter(object):
     def __init__(self):
-        self.componentKeys = ['vertices', 'normals', 'colors', 'materials', 'faces', 'bakeAnimations']
+        self.componentKeys = ['vertices', 'normals', 'colors', 'materials', 'faces', 'bones', 'bakeAnimations']
 
     def write(self, path, optionString, accessMode):
         self._parseOptions(optionString)
@@ -23,12 +23,15 @@ class ThreeJsWriter(object):
         self.faces = []
         self.normals = []
         self.morphTargets = []
+        self.bones = []
 
         if self.options["bakeAnimations"]:
             self._exportAnimations()
             self._goToFrame(self.options["startFrame"])
         if self.options["materials"]:
             self._exportMaterials()
+        if self.options["bones"]:
+            self._exportBones()
         self._exportMeshes()
 
         output = {
@@ -45,6 +48,9 @@ class ThreeJsWriter(object):
 
         if self.options['bakeAnimations']:
             output['morphTargets'] = self.morphTargets
+
+        if self.options['bones']:
+            output['bones'] = self.bones
 
         with file(path, 'w') as f:
             f.write(json.dumps(output, separators=(",",":")))
@@ -169,6 +175,24 @@ class ThreeJsWriter(object):
             result["specularCoef"] = mat.getCosPower()
 
         return result
+
+    def _exportBones(self):
+        joints = ls(type='joint')
+        jointNames = map(lambda j: j.name(), joints)
+
+        for joint in joints:
+
+            parentIndex = -1
+            for i in range(0, len(jointNames)):
+                if jointNames[i] == joint.getParent().name():
+                    parentIndex = i
+
+            self.bones.append({
+                "parent": parentIndex,
+                "name": joint.name(),
+                "pos": [],
+                "rotq": []
+            })
 
 class ThreeJsTranslator(MPxFileTranslator):
     def __init__(self):
