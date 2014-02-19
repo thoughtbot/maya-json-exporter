@@ -40,9 +40,11 @@ class ThreeJsWriter(object):
             'vertices': self.vertices,
             'faces': self.faces,
             'normals': self.normals,
-            'morphTargets': self.morphTargets,
             'materials': self.materials,
         }
+
+        if self.options['bakeAnimations']:
+            output['morphTargets'] = self.morphTargets
 
         with file(path, 'w') as f:
             f.write(json.dumps(output, separators=(",",":")))
