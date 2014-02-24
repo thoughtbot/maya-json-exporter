@@ -24,6 +24,9 @@ class ThreeJsWriter(object):
         self.normals = []
         self.morphTargets = []
         self.bones = []
+        self.animations = []
+        self.skinIndices = []
+        self.skinWeights = []
 
         if self.options["bakeAnimations"]:
             self._exportAnimations()
@@ -32,7 +35,9 @@ class ThreeJsWriter(object):
             self._exportMaterials()
         if self.options["bones"]:
             self._exportBones()
+            self._exportSkins()
         self._exportMeshes()
+        self._exportKeyframeAnimations()
 
         output = {
             'metadata': {
@@ -51,6 +56,10 @@ class ThreeJsWriter(object):
 
         if self.options['bones']:
             output['bones'] = self.bones
+            output['skinIndices'] = self.skinIndices
+            output['skinWeights'] = self.skinWeights
+
+        output['animations'] = self.animations
 
         with file(path, 'w') as f:
             f.write(json.dumps(output, separators=(",",":")))
@@ -69,7 +78,7 @@ class ThreeJsWriter(object):
     def _exportMeshes(self):
         if self.options['vertices']:
             self._exportVertices()
-        for mesh in ls(type='mesh'):
+        for mesh in ls(type='skinCluster')[0].getGeometry():
             self._exportMesh(mesh)
 
     def _exportMesh(self, mesh):
@@ -109,13 +118,10 @@ class ThreeJsWriter(object):
         })
 
     def _getVertices(self):
-        return [coord for mesh in ls(type='mesh') for point in mesh.getPoints() for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
+        return [coord for mesh in ls(type='skinCluster')[0].getGeometry() for point in mesh.getPoints() for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
 
     def _goToFrame(self, frame):
         currentTime(frame)
-
-    def _numVertices(self):
-        return sum([mesh.numVertices() for mesh in ls(type='mesh')])
 
     def _exportFaces(self, mesh, materialIndex):
         typeBitmask = self._getTypeBitmask()
@@ -177,22 +183,93 @@ class ThreeJsWriter(object):
         return result
 
     def _exportBones(self):
-        joints = ls(type='joint')
-        jointNames = map(lambda j: j.name(), joints)
-
-        for joint in joints:
-
-            parentIndex = -1
-            for i in range(0, len(jointNames)):
-                if jointNames[i] == joint.getParent().name():
-                    parentIndex = i
+        for joint in ls(type='joint'):
+            parentIndex = self._indexOfJoint(joint.getParent().name())
+            rotq = joint.getRotation().asQuaternion()
+            pos = joint.getTranslation()
 
             self.bones.append({
                 "parent": parentIndex,
                 "name": joint.name(),
-                "pos": [],
-                "rotq": []
+                "pos": [round(pos.x, FLOAT_PRECISION), round(pos.y, FLOAT_PRECISION), round(pos.z, FLOAT_PRECISION)],
+                "rotq": [round(rotq.x, FLOAT_PRECISION), round(rotq.y, FLOAT_PRECISION), round(rotq.z, FLOAT_PRECISION), round(rotq.w, FLOAT_PRECISION)]
             })
+
+    def _indexOfJoint(self, name):
+        if not hasattr(self, '_jointNames'):
+            self._jointNames = map(lambda j: j.name(), ls(type='joint'))
+
+        if name in self._jointNames:
+            return self._jointNames.index(name)
+        else:
+            return -1
+
+    def _exportKeyframeAnimations(self):
+        hierarchy = []
+        i = -1
+        for joint in ls(type='joint'):
+            hierarchy.append({
+                "parent": i,
+                "keys": self._getKeyframes(joint)
+            })
+            i += 1
+
+        self.animations.append({
+            "name": "skeletalAction.001",
+            "length": playbackOptions(maxTime=True, query=True) - playbackOptions(minTime=True, query=True),
+            "fps": 1,
+            "hierarchy": hierarchy
+        })
+
+
+    def _getKeyframes(self, joint):
+        allCurves = joint.listConnections(type='animCurve')
+        if len(allCurves) < 1:
+            return []
+
+        firstCurve = allCurves[0]
+
+        curves = {}
+        curveNames = ['rotateX', 'rotateY', 'rotateZ', 'translateX', 'translateY', 'translateZ']
+        for curve in allCurves:
+            attribute = curve.name().split('_')[-1]
+            curves[attribute] = curve
+        for name in curveNames:
+            curves[name] = curves.get(name, NullAnimCurve())
+
+        keys = []
+        for i in range(0, firstCurve.numKeys()):
+            rot = datatypes.EulerRotation([curves['rotateX'].getValue(i), curves['rotateY'].getValue(i), curves['rotateZ'].getValue(i)]).asQuaternion()
+            pos = [curves['translateX'].getValue(i), curves['translateY'].getValue(i), curves['translateZ'].getValue(i)]
+
+            keys.append({
+                'time': firstCurve.getTime(i) - playbackOptions(minTime=True, query=True),
+                'pos': map(lambda x: round(x, FLOAT_PRECISION), pos),
+                'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w]),
+                'scl': [1,1,1]
+            })
+        return keys
+
+    def _exportSkins(self):
+        for skin in ls(type='skinCluster'):
+            joints = skin.influenceObjects()
+            for mesh in skin.getGeometry():
+                for weights in skin.getWeights(mesh.vtx):
+                    numWeights = 0
+
+                    for i in range(0, len(weights)):
+                        if weights[i] > 0:
+                            self.skinWeights.append(weights[i])
+                            self.skinIndices.append(self._indexOfJoint(joints[i]))
+                            numWeights += 1
+
+                    for i in range(0, 4 - numWeights):
+                        self.skinWeights.append(0)
+                        self.skinIndices.append(0)
+
+class NullAnimCurve(object):
+    def getValue(self, index):
+        return 0.0
 
 class ThreeJsTranslator(MPxFileTranslator):
     def __init__(self):
