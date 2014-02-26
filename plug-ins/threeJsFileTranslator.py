@@ -18,6 +18,7 @@ class ThreeJsWriter(object):
     def write(self, path, optionString, accessMode):
         self._parseOptions(optionString)
 
+        self.verticeOffset = 0
         self.vertices = []
         self.materials = []
         self.faces = []
@@ -78,13 +79,14 @@ class ThreeJsWriter(object):
     def _exportMeshes(self):
         if self.options['vertices']:
             self._exportVertices()
-        for mesh in ls(type='skinCluster')[0].getGeometry():
+        for mesh in ls(type='mesh'):
             self._exportMesh(mesh)
 
     def _exportMesh(self, mesh):
         materialIndex = self._getMaterialIndex(mesh)
         if self.options['faces']:
             self._exportFaces(mesh, materialIndex)
+            self.verticeOffset += len(mesh.getPoints())
         if self.options['normals']:
             self._exportNormals(mesh)
 
@@ -118,7 +120,7 @@ class ThreeJsWriter(object):
         })
 
     def _getVertices(self):
-        return [coord for mesh in ls(type='skinCluster')[0].getGeometry() for point in mesh.getPoints() for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
+        return [coord for mesh in ls(type='mesh') for point in mesh.getPoints() for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
 
     def _goToFrame(self, frame):
         currentTime(frame)
@@ -129,7 +131,7 @@ class ThreeJsWriter(object):
 
         for face in mesh.faces:
             self._exportFaceBitmask(face, typeBitmask, hasMaterial=hasMaterial)
-            self.faces += face.getVertices()
+            self.faces += map(lambda x: x + self.verticeOffset, face.getVertices())
             if self.options['materials']:
                 if hasMaterial:
                     self.faces.append(materialIndex)
@@ -226,37 +228,30 @@ class ThreeJsWriter(object):
 
 
     def _getKeyframes(self, joint):
-        allCurves = joint.listConnections(type='animCurve')
-        if len(allCurves) < 1:
-            return []
-
-        firstCurve = allCurves[0]
-
-        curves = {}
-        curveNames = ['rotateX', 'rotateY', 'rotateZ', 'translateX', 'translateY', 'translateZ']
-        for curve in allCurves:
-            attribute = curve.name().split('_')[-1]
-            curves[attribute] = curve
-        for name in curveNames:
-            curves[name] = curves.get(name, NullAnimCurve())
-
+        frames = list(set(keyframe(joint, query=True)))
+        frames.sort()
         keys = []
-        for i in range(0, firstCurve.numKeys()):
-            rot = datatypes.EulerRotation([curves['rotateX'].getValue(i), curves['rotateY'].getValue(i), curves['rotateZ'].getValue(i)]).asQuaternion()
-            pos = [curves['translateX'].getValue(i), curves['translateY'].getValue(i), curves['translateZ'].getValue(i)]
 
-            keys.append({
-                'time': firstCurve.getTime(i) - playbackOptions(minTime=True, query=True),
-                'pos': map(lambda x: round(x, FLOAT_PRECISION), pos),
-                'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w]),
-                'scl': [1,1,1]
-            })
+        if len(frames) > 1:
+            for frame in frames:
+                self._goToFrame(frame)
+                pos = joint.getTranslation()
+                rot = joint.getRotation().asQuaternion()
+
+                keys.append({
+                    'time': frame - playbackOptions(minTime=True, query=True),
+                    'pos': map(lambda x: round(x, FLOAT_PRECISION), [pos.x, pos.y, pos.z]),
+                    'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w]),
+                    'scl': [1,1,1]
+                })
         return keys
 
     def _exportSkins(self):
-        for skin in ls(type='skinCluster'):
-            joints = skin.influenceObjects()
-            for mesh in skin.getGeometry():
+        for mesh in ls(type='mesh'):
+            skins = mesh.listConnections(type='skinCluster')
+            if len(skins) > 0:
+                skin = mesh.listConnections(type='skinCluster')[0]
+                joints = skin.influenceObjects()
                 for weights in skin.getWeights(mesh.vtx):
                     numWeights = 0
 
@@ -269,6 +264,10 @@ class ThreeJsWriter(object):
                     for i in range(0, 2 - numWeights):
                         self.skinWeights.append(0)
                         self.skinIndices.append(0)
+            else:
+                for i in range(0, len(mesh.getPoints()) * 2):
+                    self.skinWeights.append(0)
+                    self.skinIndices.append(0)
 
 class NullAnimCurve(object):
     def getValue(self, index):
