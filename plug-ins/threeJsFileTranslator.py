@@ -184,7 +184,10 @@ class ThreeJsWriter(object):
 
     def _exportBones(self):
         for joint in ls(type='joint'):
-            parentIndex = self._indexOfJoint(joint.getParent().name())
+            if joint.getParent():
+                parentIndex = self._indexOfJoint(joint.getParent().name())
+            else:
+                parentIndex = -1
             rotq = joint.getRotation().asQuaternion()
             pos = joint.getTranslation()
 
@@ -263,7 +266,7 @@ class ThreeJsWriter(object):
                             self.skinIndices.append(self._indexOfJoint(joints[i]))
                             numWeights += 1
 
-                    for i in range(0, 4 - numWeights):
+                    for i in range(0, 2 - numWeights):
                         self.skinWeights.append(0)
                         self.skinIndices.append(0)
 
