@@ -120,7 +120,7 @@ class ThreeJsWriter(object):
         })
 
     def _getVertices(self):
-        return [coord for mesh in ls(type='mesh') for point in mesh.getPoints() for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
+        return [coord for mesh in ls(type='mesh') for point in mesh.getPoints(space='world') for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
 
     def _goToFrame(self, frame):
         currentTime(frame)
