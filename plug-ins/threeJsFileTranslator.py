@@ -30,16 +30,23 @@ class ThreeJsWriter(object):
         self.skinWeights = []
 
         if self.options["bakeAnimations"]:
+            print("exporting animations")
             self._exportAnimations()
             self._goToFrame(self.options["startFrame"])
         if self.options["materials"]:
+            print("exporting materials")
             self._exportMaterials()
         if self.options["bones"]:
+            print("exporting bones")
             self._exportBones()
+            print("exporting skins")
             self._exportSkins()
+        print("exporting meshes")
         self._exportMeshes()
+        print("exporting keyframe animations")
         self._exportKeyframeAnimations()
 
+        print("writing file")
         output = {
             'metadata': {
                 'formatVersion': 3.1,
@@ -212,22 +219,23 @@ class ThreeJsWriter(object):
     def _exportKeyframeAnimations(self):
         hierarchy = []
         i = -1
+        frameRate = FramesPerSecond(currentUnit(query=True, time=True)).value()
         for joint in ls(type='joint'):
             hierarchy.append({
                 "parent": i,
-                "keys": self._getKeyframes(joint)
+                "keys": self._getKeyframes(joint, frameRate)
             })
             i += 1
 
         self.animations.append({
             "name": "skeletalAction.001",
-            "length": playbackOptions(maxTime=True, query=True) - playbackOptions(minTime=True, query=True),
+            "length": (playbackOptions(maxTime=True, query=True) - playbackOptions(minTime=True, query=True)) / frameRate,
             "fps": 1,
             "hierarchy": hierarchy
         })
 
 
-    def _getKeyframes(self, joint):
+    def _getKeyframes(self, joint, frameRate):
         frames = list(set(keyframe(joint, query=True)))
         frames.sort()
         keys = []
@@ -239,7 +247,7 @@ class ThreeJsWriter(object):
                 rot = joint.getRotation().asQuaternion()
 
                 keys.append({
-                    'time': frame - playbackOptions(minTime=True, query=True),
+                    'time': (frame - playbackOptions(minTime=True, query=True)) / frameRate,
                     'pos': map(lambda x: round(x, FLOAT_PRECISION), [pos.x, pos.y, pos.z]),
                     'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w]),
                     'scl': [1,1,1]
@@ -248,8 +256,10 @@ class ThreeJsWriter(object):
 
     def _exportSkins(self):
         for mesh in ls(type='mesh'):
+            print("exporting skins for mesh: " + mesh.name())
             skins = mesh.listConnections(type='skinCluster')
             if len(skins) > 0:
+                print("mesh has skins")
                 skin = mesh.listConnections(type='skinCluster')[0]
                 joints = skin.influenceObjects()
                 for weights in skin.getWeights(mesh.vtx):
@@ -265,6 +275,7 @@ class ThreeJsWriter(object):
                         self.skinWeights.append(0)
                         self.skinIndices.append(0)
             else:
+                print("mesh has no skins, appending 0")
                 for i in range(0, len(mesh.getPoints()) * 2):
                     self.skinWeights.append(0)
                     self.skinIndices.append(0)
@@ -311,3 +322,22 @@ def uninitializePlugin(mobject):
         sys.stderr.write('Failed to deregister translator: %s' % kPluginTranslatorTypeName)
         raise
 
+class FramesPerSecond(object):
+    MAYA_VALUES = {
+        'game': 15,
+        'film': 24,
+        'pal': 25,
+        'ntsc': 30,
+        'show': 48,
+        'palf': 50,
+        'ntscf': 60
+    }
+
+    def __init__(self, fpsString):
+        self.fpsString = fpsString
+
+    def value(self):
+        if self.fpsString in FramesPerSecond.MAYA_VALUES:
+            return FramesPerSecond.MAYA_VALUES[self.fpsString]
+        else:
+            return int(filter(lambda c: c.isdigit(), self.fpsString))
