@@ -90,21 +90,26 @@ class ThreeJsWriter(object):
             self._exportMesh(mesh)
 
     def _exportMesh(self, mesh):
+        print("Exporting " + mesh.name())
+        print("getting material index")
         materialIndex = self._getMaterialIndex(mesh)
         if self.options['faces']:
+            print("Exporting faces")
             self._exportFaces(mesh, materialIndex)
             self.verticeOffset += len(mesh.getPoints())
         if self.options['normals']:
+            print("Exporting normals")
             self._exportNormals(mesh)
 
     def _getMaterialIndex(self, mesh):
+        if not hasattr(self, '_materialIndices'):
+            self._materialIndices = dict([(mat['DbgName'], i) for i, mat in enumerate(self.materials)])
+
         if self.options['materials']:
             for engine in mesh.listConnections(type='shadingEngine'):
                 for material in engine.listConnections(type='lambert'):
-                    for i in range(0, len(self.materials)):
-                        serializedMat = self.materials[i]
-                        if serializedMat['DbgName'] == material.name():
-                            return i
+                    if self._materialIndices.has_key(material.name()):
+                        return self._materialIndices[material.name()]
         return -1
 
 
@@ -209,10 +214,10 @@ class ThreeJsWriter(object):
 
     def _indexOfJoint(self, name):
         if not hasattr(self, '_jointNames'):
-            self._jointNames = map(lambda j: j.name(), ls(type='joint'))
+            self._jointNames = dict([(joint.name(), i) for i, joint in enumerate(ls(type='joint'))])
 
         if name in self._jointNames:
-            return self._jointNames.index(name)
+            return self._jointNames[name]
         else:
             return -1
 
@@ -240,27 +245,32 @@ class ThreeJsWriter(object):
         frames.sort()
         keys = []
 
-        if len(frames) > 1:
-            for frame in frames:
-                self._goToFrame(frame)
-                pos = joint.getTranslation()
-                rot = joint.getRotation().asQuaternion()
-
-                keys.append({
-                    'time': (frame - playbackOptions(minTime=True, query=True)) / frameRate,
-                    'pos': map(lambda x: round(x, FLOAT_PRECISION), [pos.x, pos.y, pos.z]),
-                    'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w]),
-                    'scl': [1,1,1]
-                })
+        print("joint " + joint.name() + " has " + str(len(frames)) + " keyframes")
+        if len(frames) == 0:
+            frames = [playbackOptions(minTime=True, query=True), playbackOptions(maxTime=True, query=True)]
+        for frame in frames:
+            self._goToFrame(frame)
+            keys.append(self._getCurrentKeyframe(joint, frame, frameRate))
         return keys
+
+    def _getCurrentKeyframe(self, joint, frame, frameRate):
+        pos = joint.getTranslation()
+        rot = joint.getRotation().asQuaternion()
+
+        return {
+            'time': (frame - playbackOptions(minTime=True, query=True)) / frameRate,
+            'pos': map(lambda x: round(x, FLOAT_PRECISION), [pos.x, pos.y, pos.z]),
+            'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w]),
+            'scl': [1,1,1]
+        }
 
     def _exportSkins(self):
         for mesh in ls(type='mesh'):
             print("exporting skins for mesh: " + mesh.name())
-            skins = mesh.listConnections(type='skinCluster')
+            skins = filter(lambda skin: mesh in skin.getOutputGeometry(), ls(type='skinCluster'))
             if len(skins) > 0:
-                print("mesh has skins")
-                skin = mesh.listConnections(type='skinCluster')[0]
+                print("mesh has " + str(len(skins)) + " skins")
+                skin = skins[0]
                 joints = skin.influenceObjects()
                 for weights in skin.getWeights(mesh.vtx):
                     numWeights = 0
