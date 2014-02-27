@@ -19,6 +19,7 @@ class ThreeJsWriter(object):
         self._parseOptions(optionString)
 
         self.verticeOffset = 0
+        self._goToFrame(playbackOptions(minTime=True, query=True))
         self.vertices = []
         self.materials = []
         self.faces = []
@@ -209,7 +210,7 @@ class ThreeJsWriter(object):
                 "parent": parentIndex,
                 "name": joint.name(),
                 "pos": [round(pos.x, FLOAT_PRECISION), round(pos.y, FLOAT_PRECISION), round(pos.z, FLOAT_PRECISION)],
-                "rotq": [round(rotq.x, FLOAT_PRECISION), round(rotq.y, FLOAT_PRECISION), round(rotq.z, FLOAT_PRECISION), round(rotq.w, FLOAT_PRECISION)]
+                "rotq": [round(rotq.x, FLOAT_PRECISION), round(rotq.w, FLOAT_PRECISION), round(rotq.z, FLOAT_PRECISION), round(rotq.y, FLOAT_PRECISION)]
             })
 
     def _indexOfJoint(self, name):
@@ -260,7 +261,7 @@ class ThreeJsWriter(object):
         return {
             'time': (frame - playbackOptions(minTime=True, query=True)) / frameRate,
             'pos': map(lambda x: round(x, FLOAT_PRECISION), [pos.x, pos.y, pos.z]),
-            'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w]),
+            'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.w, rot.z, rot.y]),
             'scl': [1,1,1]
         }
 
