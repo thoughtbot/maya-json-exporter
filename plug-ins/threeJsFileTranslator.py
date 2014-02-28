@@ -281,7 +281,7 @@ class ThreeJsWriter(object):
                     for i in range(0, len(weights)):
                         if weights[i] > 0:
                             self.skinWeights.append(weights[i])
-                            self.skinIndices.append(self._indexOfJoint(joints[i]))
+                            self.skinIndices.append(self._indexOfJoint(joints[i].name()))
                             numWeights += 1
 
                     for i in range(0, 2 - numWeights):
