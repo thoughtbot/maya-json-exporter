@@ -203,14 +203,14 @@ class ThreeJsWriter(object):
                 parentIndex = self._indexOfJoint(joint.getParent().name())
             else:
                 parentIndex = -1
-            rotq = joint.getRotation().asQuaternion()
+            rotq = joint.getRotation(quaternion=True)
             pos = joint.getTranslation()
 
             self.bones.append({
                 "parent": parentIndex,
                 "name": joint.name(),
-                "pos": [round(pos.x, FLOAT_PRECISION), round(pos.y, FLOAT_PRECISION), round(pos.z, FLOAT_PRECISION)],
-                "rotq": [round(rotq.x, FLOAT_PRECISION), round(rotq.w, FLOAT_PRECISION), round(rotq.z, FLOAT_PRECISION), round(rotq.y, FLOAT_PRECISION)]
+                "pos": self._roundPos(pos),
+                "rotq": self._roundQuat(rotq)
             })
 
     def _indexOfJoint(self, name):
@@ -242,8 +242,7 @@ class ThreeJsWriter(object):
 
 
     def _getKeyframes(self, joint, frameRate):
-        frames = list(set(keyframe(joint, query=True)))
-        frames.sort()
+        frames = sorted(list(set(keyframe(joint, query=True))))
         keys = []
         firstFrame = playbackOptions(minTime=True, query=True)
         lastFrame = playbackOptions(maxTime=True, query=True)
@@ -258,14 +257,21 @@ class ThreeJsWriter(object):
 
     def _getCurrentKeyframe(self, joint, frame, frameRate):
         pos = joint.getTranslation()
-        rot = joint.getRotation().asQuaternion()
+        rot = joint.getRotation(quaternion=True)
 
         return {
             'time': (frame - playbackOptions(minTime=True, query=True)) / frameRate,
-            'pos': map(lambda x: round(x, FLOAT_PRECISION), [pos.x, pos.y, pos.z]),
-            'rot': map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.w, rot.z, rot.y]),
+            'pos': self._roundPos(pos),
+            'rot': self._roundQuat(rot),
             'scl': [1,1,1]
         }
+
+    def _roundPos(self, pos):
+        return map(lambda x: round(x, FLOAT_PRECISION), [pos.x, pos.y, pos.z])
+
+
+    def _roundQuat(self, rot):
+        return map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w])
 
     def _exportSkins(self):
         for mesh in ls(type='mesh'):
