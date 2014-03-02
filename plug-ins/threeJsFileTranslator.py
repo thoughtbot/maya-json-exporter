@@ -19,7 +19,6 @@ class ThreeJsWriter(object):
         self._parseOptions(optionString)
 
         self.verticeOffset = 0
-        self._goToFrame(playbackOptions(minTime=True, query=True))
         self.vertices = []
         self.materials = []
         self.faces = []
@@ -39,6 +38,8 @@ class ThreeJsWriter(object):
             self._exportMaterials()
         if self.options["bones"]:
             print("exporting bones")
+            select(map(lambda m: m.getParent(), ls(type='mesh')))
+            runtime.GoToBindPose()
             self._exportBones()
             print("exporting skins")
             self._exportSkins()
