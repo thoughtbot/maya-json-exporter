@@ -243,14 +243,12 @@ class ThreeJsWriter(object):
 
 
     def _getKeyframes(self, joint, frameRate):
-        frames = sorted(list(set(keyframe(joint, query=True))))
-        keys = []
         firstFrame = playbackOptions(minTime=True, query=True)
         lastFrame = playbackOptions(maxTime=True, query=True)
+        frames = sorted(list(set(keyframe(joint, query=True) + [firstFrame, lastFrame])))
+        keys = []
 
         print("joint " + joint.name() + " has " + str(len(frames)) + " keyframes")
-        if len(frames) <= 1:
-            frames = sorted(list(set(frames + [firstFrame, lastFrame])))
         for frame in frames:
             self._goToFrame(frame)
             keys.append(self._getCurrentKeyframe(joint, frame, frameRate))
