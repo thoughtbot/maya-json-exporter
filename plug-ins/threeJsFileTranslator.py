@@ -10,6 +10,7 @@ kOptionScript = 'ThreeJsExportScript'
 kDefaultOptionsString = '0'
 
 FLOAT_PRECISION = 8
+INFLUENCES_PER_VERTEX = 4
 
 class ThreeJsWriter(object):
     def __init__(self):
@@ -68,6 +69,7 @@ class ThreeJsWriter(object):
             output['bones'] = self.bones
             output['skinIndices'] = self.skinIndices
             output['skinWeights'] = self.skinWeights
+            output['influencesPerVertex'] = INFLUENCES_PER_VERTEX
 
         output['animations'] = self.animations
 
@@ -288,12 +290,15 @@ class ThreeJsWriter(object):
                             self.skinIndices.append(self._indexOfJoint(joints[i].name()))
                             numWeights += 1
 
-                    for i in range(0, 2 - numWeights):
+                    if numWeights > INFLUENCES_PER_VERTEX:
+                        raise Exception("More than " + str(INFLUENCES_PER_VERTEX) + " influences on a vertex in " + mesh.name() + ".")
+
+                    for i in range(0, INFLUENCES_PER_VERTEX - numWeights):
                         self.skinWeights.append(0)
                         self.skinIndices.append(0)
             else:
                 print("mesh has no skins, appending 0")
-                for i in range(0, len(mesh.getPoints()) * 2):
+                for i in range(0, len(mesh.getPoints()) * INFLUENCES_PER_VERTEX):
                     self.skinWeights.append(0)
                     self.skinIndices.append(0)
 
