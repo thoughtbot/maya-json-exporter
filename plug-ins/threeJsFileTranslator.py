@@ -204,7 +204,7 @@ class ThreeJsWriter(object):
                 parentIndex = self._indexOfJoint(joint.getParent().name())
             else:
                 parentIndex = -1
-            rotq = joint.getRotation(quaternion=True)
+            rotq = joint.getRotation(quaternion=True) * joint.getOrientation()
             pos = joint.getTranslation()
 
             self.bones.append({
@@ -256,7 +256,7 @@ class ThreeJsWriter(object):
 
     def _getCurrentKeyframe(self, joint, frame, frameRate):
         pos = joint.getTranslation()
-        rot = joint.getRotation(quaternion=True)
+        rot = joint.getRotation(quaternion=True) * joint.getOrientation()
 
         return {
             'time': (frame - playbackOptions(minTime=True, query=True)) / frameRate,
@@ -267,7 +267,6 @@ class ThreeJsWriter(object):
 
     def _roundPos(self, pos):
         return map(lambda x: round(x, FLOAT_PRECISION), [pos.x, pos.y, pos.z])
-
 
     def _roundQuat(self, rot):
         return map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w])
