@@ -4,16 +4,37 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
     {
         setParent $parent;
         columnLayout -adj true;
-        checkBox -v true -l "Vertices" vertsCb;
-        checkBox -v true -l "Faces" facesCb;
-        checkBox -v true -l "Normals" normalsCb;
-        checkBox -v true -l "Material Indices" materialsCb;
-        checkBox -v false -l "Colors" colorsCb;
-        checkBox -v false -l "Bones" bonesCb;
-        checkBox -v false -l "Bake Animation" bakeAnimCb;
-        textField -tx 0 -ann "Start" startText;
-        textField -tx 52555 -ann "End" endText;
-        textField -tx 1 -ann "Step" stepText;
+
+          frameLayout -cll true -cl false -bv true -bs "etchedIn" -l "General Export Options";
+            columnLayout -adj true;
+              checkBox -v true -l "Vertices" vertsCb;
+              checkBox -v true -l "Faces" facesCb;
+              checkBox -v true -l "Normals" normalsCb;
+              checkBox -v true -l "Material Indices" materialsCb;
+              checkBox -v false -l "Colors" colorsCb;
+              checkBox
+                -v true
+                -l "Bones"
+                -onc "textField -e -en true maxInfluencesText;"
+                -ofc "textField -e -en false maxInfluencesText;"
+                bonesCb;
+              textFieldGrp -tx 4 -label "Max Influences Per Vertex" maxInfluencesText;
+              setParent ..; // columnLayout
+            setParent ..; // frameLayout
+
+          frameLayout -cll true -cl false -bv true -bs "etchedIn" -l "Animation Options";
+            columnLayout -adj true;
+              checkBox
+                -v false
+                -l "Bake Animation"
+                -onc "textField -e -en true startText; textField -e -en true endText; textField -e -en true stepText;"
+                -ofc "textField -e -en false startText; textField -e -en false endText; textField -e -en false stepText;"
+                bakeAnimCb;
+              textField -en false -tx `playbackOptions -minTime true -q` -ann "Start" startText;
+              textField -en false -tx `playbackOptions -maxTime true -q` -ann "End" endText;
+              textField -en false -tx 1 -ann "Step" stepText;
+            setParent ..; // columnLayout
+          setParent ..; // frameLayout
     }
     else if ($action == "query")
     {
@@ -30,6 +51,8 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
             $option += "colors ";
         if (`checkBox -q -v bonesCb`)
             $option += "bones ";
+            $option += `textFieldGrp -q -tx maxInfluencesText`;
+            $option += " ";
         if (`checkBox -q -v bakeAnimCb`)
             $option += "bakeAnimations ";
             $option += `textField -q -tx startText`;

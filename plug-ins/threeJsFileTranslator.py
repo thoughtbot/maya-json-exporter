@@ -10,7 +10,6 @@ kOptionScript = 'ThreeJsExportScript'
 kDefaultOptionsString = '0'
 
 FLOAT_PRECISION = 8
-INFLUENCES_PER_VERTEX = 4
 
 class ThreeJsWriter(object):
     def __init__(self):
@@ -69,7 +68,7 @@ class ThreeJsWriter(object):
             output['bones'] = self.bones
             output['skinIndices'] = self.skinIndices
             output['skinWeights'] = self.skinWeights
-            output['influencesPerVertex'] = INFLUENCES_PER_VERTEX
+            output['influencesPerVertex'] = self.options["influencesPerVertex"]
 
         output['animations'] = self.animations
 
@@ -85,6 +84,14 @@ class ThreeJsWriter(object):
         self.options = dict([(x, False) for x in self.componentKeys])
         for key in self.componentKeys:
             self.options[key] = key in optionsString
+
+        if self.options["bones"]:
+            boneOptionsString = optionsString[optionsString.find("bones"):]
+            boneOptions = boneOptionsString.split(' ')
+            print(boneOptionsString)
+            print(boneOptions)
+            self.options["influencesPerVertex"] = int(boneOptions[1])
+
         if self.options["bakeAnimations"]:
             bakeAnimOptionsString = optionsString[optionsString.find("bakeAnimations"):]
             bakeAnimOptions = bakeAnimOptionsString.split(' ')
@@ -295,15 +302,15 @@ class ThreeJsWriter(object):
                             self.skinIndices.append(self._indexOfJoint(joints[i].name()))
                             numWeights += 1
 
-                    if numWeights > INFLUENCES_PER_VERTEX:
-                        raise Exception("More than " + str(INFLUENCES_PER_VERTEX) + " influences on a vertex in " + mesh.name() + ".")
+                    if numWeights > self.options["influencesPerVertex"]:
+                        raise Exception("More than " + str(self.options["influencesPerVertex"]) + " influences on a vertex in " + mesh.name() + ".")
 
-                    for i in range(0, INFLUENCES_PER_VERTEX - numWeights):
+                    for i in range(0, self.options["influencesPerVertex"] - numWeights):
                         self.skinWeights.append(0)
                         self.skinIndices.append(0)
             else:
                 print("mesh has no skins, appending 0")
-                for i in range(0, len(mesh.getPoints()) * INFLUENCES_PER_VERTEX):
+                for i in range(0, len(mesh.getPoints()) * self.options["influencesPerVertex"]):
                     self.skinWeights.append(0)
                     self.skinIndices.append(0)
 
