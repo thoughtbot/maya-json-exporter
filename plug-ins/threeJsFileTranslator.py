@@ -1,5 +1,7 @@
 import sys
+import os.path
 import json
+import shutil
 
 from pymel.core import *
 from maya.OpenMaya import *
@@ -13,9 +15,10 @@ FLOAT_PRECISION = 8
 
 class ThreeJsWriter(object):
     def __init__(self):
-        self.componentKeys = ['vertices', 'normals', 'colors', 'materials', 'faces', 'bones', 'skeletalAnim', 'bakeAnimations']
+        self.componentKeys = ['vertices', 'normals', 'colors', 'materials', 'bumpMaps', 'faces', 'bones', 'skeletalAnim', 'bakeAnimations']
 
     def write(self, path, optionString, accessMode):
+        self.path = path
         self._parseOptions(optionString)
 
         self.verticeOffset = 0
@@ -209,8 +212,17 @@ class ThreeJsWriter(object):
         if isinstance(mat, nodetypes.Phong):
             result["colorSpecular"] = mat.getSpecularColor().rgb
             result["specularCoef"] = mat.getCosPower()
+        if self.options["bumpMaps"]:
+            self._exportBumpMap(result, mat)
 
         return result
+
+    def _exportBumpMap(self, result, mat):
+        # for bump in mat.listConnections(type='bump2d'):
+        #     for f in bump.listConnections(type='file'):
+        #         shutil.copyfile(f.ftn.get(), os.path.dirname(self.path) + "/" + f.getName())
+        #         result["mapBump"] = f.getName()
+        pass
 
     def _exportBones(self):
         for joint in ls(type='joint'):

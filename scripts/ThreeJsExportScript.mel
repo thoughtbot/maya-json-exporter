@@ -11,6 +11,7 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
               checkBox -v true -l "Faces" facesCb;
               checkBox -v true -l "Normals" normalsCb;
               checkBox -v true -l "Material Indices" materialsCb;
+              checkBox -v true -l "Bump Maps" bumpMapsCb;
               checkBox -v false -l "Colors" colorsCb;
               checkBox
                 -v true
@@ -48,6 +49,8 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
             $option += "normals ";
         if (`checkBox -q -v materialsCb`)
             $option += "materials ";
+        if (`checkBox -q -v bumpMapsCb`)
+            $option += "bumpMaps ";
         if (`checkBox -q -v colorsCb`)
             $option += "colors ";
         if (`checkBox -q -v bonesCb`)
