@@ -76,6 +76,11 @@ class ThreeJsWriter(object):
         with file(path, 'w') as f:
             f.write(json.dumps(output, separators=(",",":")))
 
+    def _allMeshes(self):
+        if not hasattr(self, '__allMeshes'):
+            self.__allMeshes = filter(lambda m: len(m.listConnections()) > 0, ls(type='mesh'))
+        return self.__allMeshes
+
     def _parseOptions(self, optionsString):
         self.options = dict([(x, False) for x in self.componentKeys])
         for key in self.componentKeys:
@@ -90,7 +95,7 @@ class ThreeJsWriter(object):
     def _exportMeshes(self):
         if self.options['vertices']:
             self._exportVertices()
-        for mesh in ls(type='mesh'):
+        for mesh in self._allMeshes():
             self._exportMesh(mesh)
 
     def _exportMesh(self, mesh):
@@ -136,7 +141,7 @@ class ThreeJsWriter(object):
         })
 
     def _getVertices(self):
-        return [coord for mesh in ls(type='mesh') for point in mesh.getPoints(space='world') for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
+        return [coord for mesh in self._allMeshes() for point in mesh.getPoints(space='world') for coord in [round(point.x, FLOAT_PRECISION), round(point.y, FLOAT_PRECISION), round(point.z, FLOAT_PRECISION)]]
 
     def _goToFrame(self, frame):
         currentTime(frame)
@@ -274,7 +279,7 @@ class ThreeJsWriter(object):
         return map(lambda x: round(x, FLOAT_PRECISION), [rot.x, rot.y, rot.z, rot.w])
 
     def _exportSkins(self):
-        for mesh in ls(type='mesh'):
+        for mesh in self._allMeshes():
             print("exporting skins for mesh: " + mesh.name())
             skins = filter(lambda skin: mesh in skin.getOutputGeometry(), ls(type='skinCluster'))
             if len(skins) > 0:
