@@ -24,6 +24,7 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
 
           frameLayout -cll true -cl false -bv true -bs "etchedIn" -l "Animation Options";
             columnLayout -adj true;
+              checkBox -v true -l "Export Animations" animCb;
               checkBox
                 -v false
                 -l "Bake Animation"
@@ -50,10 +51,15 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
         if (`checkBox -q -v colorsCb`)
             $option += "colors ";
         if (`checkBox -q -v bonesCb`)
+        {
             $option += "bones ";
             $option += `textFieldGrp -q -tx maxInfluencesText`;
             $option += " ";
+        }
+        if (`checkBox -q -v animCb`)
+            $option += "skeletalAnim ";
         if (`checkBox -q -v bakeAnimCb`)
+        {
             $option += "bakeAnimations ";
             $option += `textField -q -tx startText`;
             $option += " ";
@@ -61,6 +67,7 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
             $option += " ";
             $option += `textField -q -tx stepText`;
             $option += " ";
+        }
         $option += "\"";
         eval($callback + $option);
     }

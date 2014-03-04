@@ -13,7 +13,7 @@ FLOAT_PRECISION = 8
 
 class ThreeJsWriter(object):
     def __init__(self):
-        self.componentKeys = ['vertices', 'normals', 'colors', 'materials', 'faces', 'bones', 'bakeAnimations']
+        self.componentKeys = ['vertices', 'normals', 'colors', 'materials', 'faces', 'bones', 'skeletalAnim', 'bakeAnimations']
 
     def write(self, path, optionString, accessMode):
         self._parseOptions(optionString)
@@ -45,8 +45,9 @@ class ThreeJsWriter(object):
             self._exportSkins()
         print("exporting meshes")
         self._exportMeshes()
-        print("exporting keyframe animations")
-        self._exportKeyframeAnimations()
+        if self.options["skeletalAnim"]:
+            print("exporting keyframe animations")
+            self._exportKeyframeAnimations()
 
         print("writing file")
         output = {
@@ -70,7 +71,8 @@ class ThreeJsWriter(object):
             output['skinWeights'] = self.skinWeights
             output['influencesPerVertex'] = self.options["influencesPerVertex"]
 
-        output['animations'] = self.animations
+        if self.options['skeletalAnim']:
+            output['animations'] = self.animations
 
         with file(path, 'w') as f:
             f.write(json.dumps(output, separators=(",",":")))
@@ -88,8 +90,6 @@ class ThreeJsWriter(object):
         if self.options["bones"]:
             boneOptionsString = optionsString[optionsString.find("bones"):]
             boneOptions = boneOptionsString.split(' ')
-            print(boneOptionsString)
-            print(boneOptions)
             self.options["influencesPerVertex"] = int(boneOptions[1])
 
         if self.options["bakeAnimations"]:
