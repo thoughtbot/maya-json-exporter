@@ -1,4 +1,9 @@
+__author__ = 'Sean Griffin'
+__version__ = '1.0.0'
+__email__ = 'sean@thoughtbot.com'
+
 import sys
+
 import os.path
 import json
 import shutil
@@ -15,9 +20,9 @@ FLOAT_PRECISION = 8
 
 class ThreeJsWriter(object):
     def __init__(self):
-        self.componentKeys = ['vertices', 'normals', 'colors', 'uvs',
-                'materials', 'specularMaps', 'bumpMaps', 'faces', 'bones',
-                'skeletalAnim', 'bakeAnimations', 'prettyOutput']
+        self.componentKeys = ['vertices', 'normals', 'colors', 'uvs', 'faces',
+                'materials', 'diffuseMaps', 'specularMaps', 'bumpMaps', 'copyTextures',
+                'bones', 'skeletalAnim', 'bakeAnimations', 'prettyOutput']
 
     def write(self, path, optionString, accessMode):
         self.path = path
@@ -237,6 +242,8 @@ class ThreeJsWriter(object):
         if isinstance(mat, nodetypes.Phong):
             result["colorSpecular"] = mat.getSpecularColor().rgb
             result["specularCoef"] = mat.getCosPower()
+            if self.options["specularMaps"]:
+                self._exportSpecularMap(result, mat)
         if self.options["bumpMaps"]:
             self._exportBumpMap(result, mat)
         if self.options["diffuseMaps"]:
@@ -255,9 +262,15 @@ class ThreeJsWriter(object):
             result["colorDiffuse"] = f.attr('defaultColor').get()
             self._exportFile(result, f, "Diffuse")
 
+    def _exportSpecularMap(self, result, mat):
+        for f in mat.attr('specularColor').inputs():
+            result["colorSpecular"] = f.attr('defaultColor').get()
+            self._exportFile(result, f, "Specular")
+
     def _exportFile(self, result, mapFile, mapType):
         fName = os.path.basename(mapFile.ftn.get())
-        shutil.copy2(mapFile.ftn.get(), os.path.dirname(self.path) + "/" + fName)
+        if self.options['copyTextures']:
+            shutil.copy2(mapFile.ftn.get(), os.path.dirname(self.path) + "/" + fName)
         result["map" + mapType] = fName
         result["map" + mapType + "Repeat"] = [1, 1]
         result["map" + mapType + "Wrap"] = ["repeat", "repeat"]

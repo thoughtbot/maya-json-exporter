@@ -1,3 +1,7 @@
+// ThreeJsExportScript.mel
+// Author: Sean Griffin
+// Email: sean@thoughtbot.com
+
 global proc int ThreeJsExportScript(string $parent, string $action, string $settings, string $callback)
 {
     if ($action == "post")
@@ -11,10 +15,6 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
               checkBox -v true -l "Faces" facesCb;
               checkBox -v true -l "Normals" normalsCb;
               checkBox -v true -l "UVs" uvsCb;
-              checkBox -v true -l "Material Indices" materialsCb;
-              checkBox -v true -l "Diffuse Maps" diffuseMapsCb;
-              checkBox -v true -l "Specular Maps" specularMapsCb;
-              checkBox -v true -l "Bump Maps" bumpMapsCb;
               checkBox -v false -l "Colors" colorsCb;
               checkBox
                 -v true
@@ -23,6 +23,16 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
                 -ofc "textField -e -en false maxInfluencesText;"
                 bonesCb;
               textFieldGrp -tx 4 -label "Max Influences Per Vertex" maxInfluencesText;
+              setParent ..; // columnLayout
+            setParent ..; // frameLayout
+
+          frameLayout -cll true -cl false -bv true -bs "etchedIn" -l "Skinning Options";
+            columnLayout -adj true;
+              checkBox -v true -l "Material Indices" materialsCb;
+              checkBox -v true -l "Diffuse Maps" diffuseMapsCb;
+              checkBox -v true -l "Specular Maps" specularMapsCb;
+              checkBox -v true -l "Bump Maps" bumpMapsCb;
+              checkBox -v true -l "Copy Texture Files to Target Directory" copyTexturesCb;
               setParent ..; // columnLayout
             setParent ..; // frameLayout
 
@@ -43,7 +53,7 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
 
           frameLayout -cll true -cl false -bv true -bs "etchedIn" -l "Debug Options";
             columnLayout -adj true;
-              checkBox -v true -l "Pretty Output" prettyOutputCb;
+              checkBox -v false -l "Pretty Output" prettyOutputCb;
             setParent ..; // columnLayout
           setParent ..; // frameLayout
 
@@ -67,6 +77,8 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
             $option += "specularMaps ";
         if (`checkBox -q -v bumpMapsCb`)
             $option += "bumpMaps ";
+        if (`checkBox -q -v copyTexturesCb`)
+            $option += "copyTexturesMaps ";
         if (`checkBox -q -v colorsCb`)
             $option += "colors ";
         if (`checkBox -q -v bonesCb`)
