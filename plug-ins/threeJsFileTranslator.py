@@ -15,17 +15,21 @@ FLOAT_PRECISION = 8
 
 class ThreeJsWriter(object):
     def __init__(self):
-        self.componentKeys = ['vertices', 'normals', 'colors', 'materials', 'bumpMaps', 'faces', 'bones', 'skeletalAnim', 'bakeAnimations']
+        self.componentKeys = ['vertices', 'normals', 'colors', 'uvs',
+                'materials', 'specularMaps', 'bumpMaps', 'faces', 'bones',
+                'skeletalAnim', 'bakeAnimations', 'prettyOutput']
 
     def write(self, path, optionString, accessMode):
         self.path = path
         self._parseOptions(optionString)
 
         self.verticeOffset = 0
+        self.uvOffset = 0
         self.vertices = []
         self.materials = []
         self.faces = []
         self.normals = []
+        self.uvs = []
         self.morphTargets = []
         self.bones = []
         self.animations = []
@@ -60,6 +64,7 @@ class ThreeJsWriter(object):
             },
 
             'vertices': self.vertices,
+            'uvs': [self.uvs],
             'faces': self.faces,
             'normals': self.normals,
             'materials': self.materials,
@@ -78,7 +83,10 @@ class ThreeJsWriter(object):
             output['animations'] = self.animations
 
         with file(path, 'w') as f:
-            f.write(json.dumps(output, separators=(",",":")))
+            if self.options['prettyOutput']:
+                f.write(json.dumps(output, sort_keys=True, indent=4, separators=(',', ': ')))
+            else:
+                f.write(json.dumps(output, separators=(",",":")))
 
     def _allMeshes(self):
         if not hasattr(self, '__allMeshes'):
@@ -110,25 +118,28 @@ class ThreeJsWriter(object):
 
     def _exportMesh(self, mesh):
         print("Exporting " + mesh.name())
-        print("getting material index")
-        materialIndex = self._getMaterialIndex(mesh)
         if self.options['faces']:
             print("Exporting faces")
-            self._exportFaces(mesh, materialIndex)
+            self._exportFaces(mesh)
             self.verticeOffset += len(mesh.getPoints())
+            self.uvOffset += mesh.numUVs()
         if self.options['normals']:
             print("Exporting normals")
             self._exportNormals(mesh)
+        if self.options['uvs']:
+            print("Exporting UVs")
+            self._exportUVs(mesh)
 
-    def _getMaterialIndex(self, mesh):
+    def _getMaterialIndex(self, face, mesh):
         if not hasattr(self, '_materialIndices'):
             self._materialIndices = dict([(mat['DbgName'], i) for i, mat in enumerate(self.materials)])
 
         if self.options['materials']:
             for engine in mesh.listConnections(type='shadingEngine'):
-                for material in engine.listConnections(type='lambert'):
-                    if self._materialIndices.has_key(material.name()):
-                        return self._materialIndices[material.name()]
+                if sets(engine, isMember=face):
+                    for material in engine.listConnections(type='lambert'):
+                        if self._materialIndices.has_key(material.name()):
+                            return self._materialIndices[material.name()]
         return -1
 
 
@@ -156,16 +167,19 @@ class ThreeJsWriter(object):
     def _goToFrame(self, frame):
         currentTime(frame)
 
-    def _exportFaces(self, mesh, materialIndex):
+    def _exportFaces(self, mesh):
         typeBitmask = self._getTypeBitmask()
-        hasMaterial = materialIndex != -1
 
         for face in mesh.faces:
+            materialIndex = self._getMaterialIndex(face, mesh)
+            hasMaterial = materialIndex != -1
             self._exportFaceBitmask(face, typeBitmask, hasMaterial=hasMaterial)
             self.faces += map(lambda x: x + self.verticeOffset, face.getVertices())
             if self.options['materials']:
                 if hasMaterial:
                     self.faces.append(materialIndex)
+            if self.options['uvs'] and face.hasUVs():
+                self.faces += map(lambda v: face.getUVIndex(v) + self.uvOffset, range(face.polygonVertexCount()))
             if self.options['normals']:
                 self._exportFaceVertexNormals(face)
 
@@ -174,8 +188,13 @@ class ThreeJsWriter(object):
             faceBitmask = 1
         else:
             faceBitmask = 0
+
         if hasMaterial:
-            faceBitmask |= 2
+            faceBitmask |= (1 << 1)
+
+        if self.options['uvs'] and face.hasUVs():
+            faceBitmask |= (1 << 3)
+
         self.faces.append(typeBitmask | faceBitmask)
 
     def _exportFaceVertexNormals(self, face):
@@ -185,6 +204,12 @@ class ThreeJsWriter(object):
     def _exportNormals(self, mesh):
         for normal in mesh.getNormals():
             self.normals += [round(normal.x, FLOAT_PRECISION), round(normal.y, FLOAT_PRECISION), round(normal.z, FLOAT_PRECISION)]
+
+    def _exportUVs(self, mesh):
+        us, vs = mesh.getUVs()
+        for i, u in enumerate(us):
+            self.uvs.append(u)
+            self.uvs.append(vs[i])
 
     def _getTypeBitmask(self):
         bitmask = 0
@@ -214,15 +239,29 @@ class ThreeJsWriter(object):
             result["specularCoef"] = mat.getCosPower()
         if self.options["bumpMaps"]:
             self._exportBumpMap(result, mat)
+        if self.options["diffuseMaps"]:
+            self._exportDiffuseMap(result, mat)
 
         return result
 
     def _exportBumpMap(self, result, mat):
-        # for bump in mat.listConnections(type='bump2d'):
-        #     for f in bump.listConnections(type='file'):
-        #         shutil.copyfile(f.ftn.get(), os.path.dirname(self.path) + "/" + f.getName())
-        #         result["mapBump"] = f.getName()
-        pass
+        for bump in mat.listConnections(type='bump2d'):
+            for f in bump.listConnections(type='file'):
+                result["mapNormalFactor"] = 1
+                self._exportFile(result, f, "Normal")
+
+    def _exportDiffuseMap(self, result, mat):
+        for f in mat.attr('color').inputs():
+            result["colorDiffuse"] = f.attr('defaultColor').get()
+            self._exportFile(result, f, "Diffuse")
+
+    def _exportFile(self, result, mapFile, mapType):
+        fName = os.path.basename(mapFile.ftn.get())
+        shutil.copy2(mapFile.ftn.get(), os.path.dirname(self.path) + "/" + fName)
+        result["map" + mapType] = fName
+        result["map" + mapType + "Repeat"] = [1, 1]
+        result["map" + mapType + "Wrap"] = ["repeat", "repeat"]
+        result["map" + mapType + "Anistropy"] = 4
 
     def _exportBones(self):
         for joint in ls(type='joint'):
