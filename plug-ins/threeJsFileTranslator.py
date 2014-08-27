@@ -143,7 +143,7 @@ class ThreeJsWriter(object):
 
         if self.options['materials']:
             for engine in mesh.listConnections(type='shadingEngine'):
-                if sets(engine, isMember=face):
+                if sets(engine, isMember=face) or sets(engine, isMember=mesh):
                     for material in engine.listConnections(type='lambert'):
                         if self._materialIndices.has_key(material.name()):
                             return self._materialIndices[material.name()]
