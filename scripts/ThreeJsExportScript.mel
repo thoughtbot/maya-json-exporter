@@ -39,12 +39,6 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
           frameLayout -cll true -cl false -bv true -bs "etchedIn" -l "Animation Options";
             columnLayout -adj true;
               checkBox -v true -l "Export Animations" animCb;
-              checkBox
-                -v false
-                -l "Bake Animation"
-                -onc "textField -e -en true startText; textField -e -en true endText; textField -e -en true stepText;"
-                -ofc "textField -e -en false startText; textField -e -en false endText; textField -e -en false stepText;"
-                bakeAnimCb;
               textField -en false -tx `playbackOptions -minTime true -q` -ann "Start" startText;
               textField -en false -tx `playbackOptions -maxTime true -q` -ann "End" endText;
               textField -en false -tx 1 -ann "Step" stepText;
@@ -89,16 +83,6 @@ global proc int ThreeJsExportScript(string $parent, string $action, string $sett
         }
         if (`checkBox -q -v animCb`)
             $option += "skeletalAnim ";
-        if (`checkBox -q -v bakeAnimCb`)
-        {
-            $option += "bakeAnimations ";
-            $option += `textField -q -tx startText`;
-            $option += " ";
-            $option += `textField -q -tx endText`;
-            $option += " ";
-            $option += `textField -q -tx stepText`;
-            $option += " ";
-        }
         if (`checkBox -q -v prettyOutputCb`)
             $option += "prettyOutput ";
         $option += "\"";
